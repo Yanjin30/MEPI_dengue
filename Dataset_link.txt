@@ -1,0 +1,2 @@
+Sri Lanka Dengue Data: 2019-2021 Insights : https://www.kaggle.com/datasets/kanchana1990/sri-lanka-dengue-data-2019-2021-insights?select=dengue_2021.csv
+Sri Lanka Weather Dataset : https://www.kaggle.com/datasets/rasulmah/sri-lanka-weather-dataset?resource=download
