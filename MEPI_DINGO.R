@@ -14,7 +14,6 @@ setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/datasets_dengo")
 library(BRREWABC)
 
 # Import datasets
-# Rhaaa ça marche pô
 data19 <- read.csv(file = "dengue_2019.csv", header = TRUE, sep = ",", dec = ".",)
 data20 <- read.csv(file = "dengue_2020.csv", header = TRUE, sep = ",", dec = ".")
 data21 <- read.csv(file = "dengue_2021.csv", header = TRUE, sep = ",", dec = ".")
