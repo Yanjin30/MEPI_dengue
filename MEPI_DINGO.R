@@ -17,17 +17,38 @@ library(BRREWABC)
 data19 <- read.csv(file = "dengue_2019.csv", header = TRUE, sep = ",", dec = ".",)
 data20 <- read.csv(file = "dengue_2020.csv", header = TRUE, sep = ",", dec = ".")
 data21 <- read.csv(file = "dengue_2021.csv", header = TRUE, sep = ",", dec = ".")
+############# Déterministe ###############
 
-modele_dengue=function(Sh0,Ih0,Rh0,Sv0,Iv0,param,tmax){
+############# Stochastique ###############
+modele_dengue_stoch=function(Sh0,Ih0,Rh0,Sv0,Iv0,param,tmax){
   Sh=Sh0
   Ih=Ih0
   Rh=Rh0
-  Sv=2*Sh0 #Nombre de moustique par habitant à définir
+  Nv=2*Sh0 #Nombre de moustique par habitant à définir
   Iv=0.2*Sv #Proportion de moustique porteur à définir
+  Sv=Nv-Iv
   betah=param[1]
   gamma=param[2]
   betav=param[3]
   for (i in 1:tmax){
+    # Définition des taux de transmission
+    tx_transmi_h=
+    tx_transmi_v=
+    tx_recovery=
+    # Définition des probas de transmissions 
+    pb_inf_h=1-exp(-tx_transmi_h)
+    pb_inf_v=1-exp(-tx_transmi_v)
+    pb_recov=1-exp(-tx_recovery)
+    # Tirage des individus transitionnant
+    new_inf_v=rbinom(Sh,pb_inf_h)
+    new_inf_h=rbinom(Sv,pb_inf_v)
+    new_recov=rbinom(Ih,pb_recov)
+    # Ajout des individus transitionnant
+    Sh=Sh-new_inf_h
+    Ih=Ih+new_inf_h-new_recov
+    Rh=Rh+new_recov
+    Sv=Sv-new_inf_v
+    Iv=Iv+new_inf_v
     
   }
   
