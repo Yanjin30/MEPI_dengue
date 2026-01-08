@@ -8,8 +8,8 @@
 # l'échelle des districts administratifs.                                      #
 ################################################################################
 
-#setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
-setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
+#setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
 
 # Import
 #devtools::install_github("GaelBn/BRREWABC")
@@ -23,19 +23,20 @@ data19 <- read.csv(
   sep = ",",
   dec = ".",
 )
+
 data20 <- read.csv(
   file = "dengue_2020.csv",
   header = TRUE,
-  d = ",",
+  sep = ",",
   dec = "."
 )
+
 data21 <- read.csv(
   file = "dengue_2021.csv",
   header = TRUE,
   sep = ",",
   dec = "."
 )
-
 
 ################ Déterministe ####################
 modele_dengue_deter=function(t,y,param){
@@ -53,7 +54,6 @@ modele_dengue_deter=function(t,y,param){
   Ih = y[1]
   Rh = y[2]
   
-
   Nh = 10000
   
   # Moustiques
@@ -63,7 +63,8 @@ modele_dengue_deter=function(t,y,param){
   # Définition des dérivées
   dIdt = -gamma * Ih + beta_h * z * Iv  * (Nh - Ih - Rh) / Nh
   dRdt = gamma * Ih
-  dVdt = beta_v * (Nv - Iv) * Ih/Nh - mu_v * Iv
+  dVdt = beta_v * (Nv-Iv) * Ih/Nh - mu_v * Iv
+  
   return(list(c(dIdt, dRdt, dVdt)))
 }
 
@@ -85,8 +86,7 @@ simulation_deter=function(y,tmax,param,delta_t){
 }
 # Juste un test que ça fonctionne correctement, la dynamique ressemble à quelque chose qui me semble logique vu notre modèle
 # Tu me diras si de ton coté aussi
-# test=simulation_deter(c(100,100,100),60,c(0.65),1)
-
+# test = simulation_deter(c(100,100,100),60,c(0.65),1)
 
 distance_deter=function(param,ssobs){
   # Définition des conditions initiales
@@ -104,11 +104,6 @@ distance_deter=function(param,ssobs){
   # Comparaison de nos statistiques résumées
   
 }
-
-
-
-
-
 
 
 ############# Stochastique ###############
