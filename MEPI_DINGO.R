@@ -61,10 +61,10 @@ modele_dengue_deter=function(t,y,param){
   Nv = z * Nh
   
   # Définition des dérivées
-  dIdt = -gamma * Ih + beta_h * z * (Iv / Nv) * (Nh - Ih - Rh) / Nh
+  dIdt = -gamma * Ih + beta_h * z * Iv  * (Nh - Ih - Rh) / Nh
   dRdt = gamma * Ih
-  dVdt = beta_v * (Nv - Iv)  - mu_v * V
-  return(c(dIdt, dRdt, dVdt))
+  dVdt = beta_v * (Nv - Iv) * Ih/Nh - mu_v * Iv
+  return(list(c(dIdt, dRdt, dVdt)))
 }
 
 
