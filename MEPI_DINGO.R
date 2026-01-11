@@ -45,10 +45,11 @@ modele_dengue_deter=function(t,y,param){
   beta_h = param[1]
   
   # Définition des paramètres fixés
-  z = 2.5
+  z = 0.9
   gamma = 1 / 2
   beta_v = 0.375
   mu_v = 1 / 6
+  mu_h= 1 / 75
   
   # Définition des classes de population
   # Humains
@@ -62,8 +63,8 @@ modele_dengue_deter=function(t,y,param){
   Nv = z * Nh
   
   # Définition des dérivées
-  dIdt = -gamma * Ih + beta_h * z * Iv  * (Nh - Ih - Rh) / Nh
-  dRdt = gamma * Ih
+  dIdt = - (gamma + mu_h) * Ih + beta_h * z * Iv  * (Nh - Ih - Rh) / Nh
+  dRdt = gamma * Ih - mu_h * Rh
   dVdt = beta_v * (Nv-Iv) * Ih/Nh - mu_v * Iv
   
   return(list(c(dIdt, dRdt, dVdt)))
@@ -87,7 +88,7 @@ simulation_deter=function(y,tmax,param,delta_t){
 }
 # Juste un test que ça fonctionne correctement, la dynamique ressemble à quelque chose qui me semble logique vu notre modèle
 # Tu me diras si de ton coté aussi
-# test = simulation_deter(c(100,100,100),60,c(0.65),1)
+test = simulation_deter(c(100,100,100),60,c(0.65),1)
 
 ## Fonction qui prend une dynamique d'infection et de recovery afin d'avoir le nombre d'incidence par mois
 summary_extract=function(vect_inf,vect_recov){
