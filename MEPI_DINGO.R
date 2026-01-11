@@ -95,9 +95,12 @@ summary_extract=function(vect_inf,vect_recov){
   monthly_new_case=c()
   u=1
   for (i in seq(30,length(vect_inf),30)){
-    monthly_new_case=c(monthly_new_case,sum(diff(vect_inf[u:i])+diff(vect_recov[u:i])))
-    u=i+1
-  }
+    if (u==1){
+      monthly_new_case=c(monthly_new_case,sum(diff(c(0,vect_inf[u:i]))+diff(c(0,vect_recov[u:i]))))}
+    if (u!=1){
+      print(u)
+      monthly_new_case=c(monthly_new_case,sum(diff(vect_inf[(u-1):i])+diff(vect_recov[(u-1):i])))}
+    u=i+1}
   return(monthly_new_case)
 }
 
