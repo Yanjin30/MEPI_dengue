@@ -88,7 +88,6 @@ simulation_deter=function(y,tmax,param,delta_t){
 # Juste un test que ça fonctionne correctement, la dynamique ressemble à quelque chose qui me semble logique vu notre modèle
 # Tu me diras si de ton coté aussi
 # test = simulation_deter(c(100,100,100),60,c(0.65),1)
-# Fonction qui agrège les cas par mois 
 
 ## Fonction qui prend une dynamique d'infection et de recovery afin d'avoir le nombre d'incidence par mois
 summary_extract=function(vect_inf,vect_recov){
