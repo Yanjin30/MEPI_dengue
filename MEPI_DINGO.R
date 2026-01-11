@@ -39,6 +39,7 @@ data21 <- read.csv(
 )
 
 ################ Déterministe ####################
+# Modèle déterministe à base d'ODE
 modele_dengue_deter=function(t,y,param){
   # Définition des paramètres à opimiser
   beta_h = param[1]
@@ -69,7 +70,7 @@ modele_dengue_deter=function(t,y,param){
 }
 
 
-
+## Fonction qui réalise une simulation à partir d'un modèle (ODE)
 simulation_deter=function(y,tmax,param,delta_t){
   # Definition du pas de temps
   temps=seq(0,tmax,delta_t)
@@ -88,6 +89,8 @@ simulation_deter=function(y,tmax,param,delta_t){
 # Tu me diras si de ton coté aussi
 # test = simulation_deter(c(100,100,100),60,c(0.65),1)
 
+## Fonction qui calcule la distance à partir d'une trajectoire et de nos statistiques résumées
+## Prend en entrée les statistiques résumées et un vecteur de paramètre
 distance_deter=function(param,ssobs){
   # Définition des conditions initiales
   y0=c(100,0,100)
@@ -98,11 +101,12 @@ distance_deter=function(param,ssobs){
   recover_dyna=simu[,3]
   
   # Création d'un résumé de nos statistiques simulées
-  all_mensual_case
-  
+  all_mensual_case = summary_extract(infected_dyna,recover_dyna) # On récupère toutes les nouvelles infection de chaque mois
+  all_mensual_case_obs = rbinom(all_mensual_case,0.05) # Modèle d'observation, hypothèse symptome
   
   # Comparaison de nos statistiques résumées
-  
+  dist = sum( ( all_mensual_case - ssobs) **2)
+  return(c(dist))
 }
 
 
