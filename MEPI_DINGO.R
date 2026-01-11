@@ -98,6 +98,7 @@ summary_extract=function(vect_inf,vect_recov){
     monthly_new_case=c(monthly_new_case,sum(diff(vect_inf[u:i])+diff(vect_recov[u:i])))
     u=i+1
   }
+  return(monthly_new_case)
 }
 
 
