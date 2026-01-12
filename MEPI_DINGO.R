@@ -15,6 +15,8 @@ setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
 #devtools::install_github("GaelBn/BRREWABC")
 library(BRREWABC)
 library(deSolve)
+library(tidyr)
+library(dplyr)
 
 # Import datasets
 data19 = read.csv(
@@ -38,6 +40,31 @@ data21 = read.csv(
   dec = "."
 )
 
+# Create a single reported cases table
+data19$Year <- 2019
+data20$Year <- 2020
+data21$Year <- 2021
+data_all <- rbind(data19, data20, data21)
+
+# Tidy and mutate the binded dataset
+reported_cases <- data_all %>%
+  pivot_longer(
+    cols = Jan:Dec,
+    names_to = "Month",
+    values_to = "Cases") %>%
+  mutate(
+    Month = match(Month,
+                  c("Jan","Feb","Mar","Apr","May","June",
+                    "July","Aug","Sept","Oct","Nov","Dec")),
+    Date = as.Date(paste(Year, Month, 1, sep = "-"))
+  )
+
+# Check for consistency
+head(reported_cases)
+
+# Compute a dataset with Sri Lankan montly cases
+
+# Import weather data
 weather = read.csv(
   file = "SriLanka_Weather_Dataset_2019_2021.csv",
   header = TRUE,
@@ -45,7 +72,10 @@ weather = read.csv(
   dec = "."
 )
 
-################ Déterministe ####################
+################ Data plotting to see the trends ############
+
+
+################ Deterministic model ########################
 z_t <- function(t){
   zt = runif(n = 1, min = 0, max = 1.5)
   return(zt)
@@ -112,6 +142,12 @@ simulation_deter = function(y, tmax, param, delta_t) {
 
 test = simulation_deter(c(100, 100, 75), 1500, c(0.65), 1)
 
+################# 1st fit ####################################
+# L'objectif ici est de fit z (le ratio du nombre de moustiques par rapport au nombre d'humains)
+# pour l'ensemble des districts aggregés et pour plusieurs et sur plusieurs intervalles de temps 
+# (on suppose que z change toutes les 2, 4, 8, 16 semaines) et on compare avec les AICs 
+# du modèle fitté : on justfie comme ça le choix de la periodicité 
+# (sans Fast Fourier Transform, même si en vrai c'est pas très compliqué)
 
 
 
