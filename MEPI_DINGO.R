@@ -8,8 +8,8 @@
 # l'échelle des districts administratifs.                                      #
 ################################################################################
 
-setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
-#setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+#setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
+setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
 
 # Import
 #devtools::install_github("GaelBn/BRREWABC")
@@ -97,22 +97,32 @@ ggplot(data = Data_monthly, aes(x=Date, y=Cases))+
   theme_minimal()
 
 ################ Deterministic model ########################
-z_t <- function(t){
-  zt = runif(n = 1, min = 0, max = 1.5)
+z_t <- function(Z,t){
+  period=seq(9,162,9)
+  for (j in 1:length(period)){
+    if (t<period[j]){
+      print(j)
+      zt=Z[j]
+      break
+    }
+  }
+  #zt = runif(n = 1, min = 0, max = 1.5)
   return(zt)
 }
 
 # Modèle déterministe à base d'ODE
 modele_dengue_deter = function(t, y, param) {
   # Définition des paramètres à opimiser
-  beta_h = param[1]
+  #beta_h = param[1]
+  Z = param
   
   # Définition des paramètres fixés
-  z = z_t(t)
+  z = z_t(Z,t)
   gamma = 1 / 2
   beta_v = 0.375
   mu_v = 1 / 6
   mu_h = 0
+  beta_h = 0.75
   
   # Définition des classes de population
   # Humains
@@ -161,7 +171,8 @@ simulation_deter = function(y, tmax, param, delta_t) {
   return(result)
 }
 
-test = simulation_deter(c(100, 100, 75), 1500, c(0.65), 1)
+Z=seq(0.1,1.8,0.1)
+test = simulation_deter(c(100, 100, 75), 156, Z, 1)
 
 ################# 1st fit ####################################
 # L'objectif ici est de fit z (le ratio du nombre de moustiques par rapport au nombre d'humains)
