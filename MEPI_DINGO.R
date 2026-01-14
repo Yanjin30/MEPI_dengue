@@ -17,6 +17,7 @@ library(BRREWABC)
 library(deSolve)
 library(tidyr)
 library(dplyr)
+library(ggplot2)
 
 # Import datasets
 data19 = read.csv(
@@ -56,13 +57,22 @@ reported_cases <- data_all %>%
     Month = match(Month,
                   c("Jan","Feb","Mar","Apr","May","June",
                     "July","Aug","Sept","Oct","Nov","Dec")),
-    Date = as.Date(paste(Year, Month, 1, sep = "-"))
+    Date = as.Date(paste(Year, Month, 30, sep = "-"))
   )
 
 # Check for consistency
 head(reported_cases)
 
-# Compute a dataset with Sri Lankan montly cases
+#########
+#   #   #
+#  ###  # Attention à la signification de la colonne "Total" !!!
+# ##### #
+#########
+
+# Compute a dataset with Sri Lankan monthly cases
+SriLankan_monthly = reported_cases %>%
+  group_by(Date)%>%
+  summarise(SriLankanCases = sum(Cases))
 
 # Import weather data
 weather = read.csv(
@@ -73,6 +83,11 @@ weather = read.csv(
 )
 
 ################ Data plotting to see the trends ############
+ggplot(data = SriLankan_monthly, aes(x=Date, y=SriLankanCases))+
+  geom_area(fill='orchid3', col='black',alpha=0.3)+
+  labs(title =  "Sri Lankan pooled data (no district considered)", y = "Reported cases")+
+  theme_minimal()
+
 
 
 ################ Deterministic model ########################
