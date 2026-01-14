@@ -57,8 +57,7 @@ reported_cases <- data_all %>%
     Month = match(Month,
                   c("Jan","Feb","Mar","Apr","May","June",
                     "July","Aug","Sept","Oct","Nov","Dec")),
-    Date = as.Date(paste(Year, Month, 30, sep = "-"))
-  )
+    Date = as.Date(paste(Year, Month, 30, sep = "-")))
 
 # Check for consistency
 head(reported_cases)
@@ -70,29 +69,32 @@ head(reported_cases)
 #########
 
 # Compute a dataset with Sri Lankan monthly cases
-SriLankan_monthly = reported_cases %>%
-  group_by(Date)%>%
-  summarise(SriLankanCases = sum(Cases))
+Data_monthly = reported_cases %>%
+  group_by(Date, Province, District)%>%
+  summarise(Cases = sum(Cases))
+Data_monthly$Province = as.factor(Data_monthly$Province)
 
-Provincial_monthly = reported_cases %>%
-  group_by(Date, Province)%>%
-  summarise(PotentialCases = sum(Cases))
+SriLankan_monthly = Data_monthly %>%
+  filter(Province=="TOTAL")%>%
+  select(Date,Cases)
 
 # Import weather data
 weather = read.csv(
   file = "SriLanka_Weather_Dataset_2019_2021.csv",
   header = TRUE,
   sep = ",",
-  dec = "."
-)
+  dec = ".")
 
 ################ Data plotting to see the trends ############
-ggplot(data = SriLankan_monthly, aes(x=Date, y=SriLankanCases))+
-  geom_area(fill='orchid3', col='black',alpha=0.3)+
+ggplot(data = SriLankan_monthly, aes(x=Date, y=Cases))+
+  geom_area(fill='orchid3', col='black',alpha=0.4)+
   labs(title =  "Sri Lankan pooled data (no district considered)", y = "Reported cases")+
   theme_minimal()
 
-
+ggplot(data = Data_monthly, aes(x=Date, y=Cases))+
+  geom_area(aes(fill=Province), col='black',alpha=0.3)+
+  labs(title =  "Reported case per province", y = "Reported cases")+
+  theme_minimal()
 
 ################ Deterministic model ########################
 z_t <- function(t){
@@ -167,10 +169,6 @@ test = simulation_deter(c(100, 100, 75), 1500, c(0.65), 1)
 # (on suppose que z change toutes les 2, 4, 8, 16 semaines) et on compare avec les AICs 
 # du modèle fitté : on justfie comme ça le choix de la periodicité 
 # (sans Fast Fourier Transform, même si en vrai c'est pas très compliqué)
-
-
-
-
 
 
 
