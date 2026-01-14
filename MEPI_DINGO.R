@@ -74,6 +74,10 @@ SriLankan_monthly = reported_cases %>%
   group_by(Date)%>%
   summarise(SriLankanCases = sum(Cases))
 
+Provincial_monthly = reported_cases %>%
+  group_by(Date, Province)%>%
+  summarise(PotentialCases = sum(Cases))
+
 # Import weather data
 weather = read.csv(
   file = "SriLanka_Weather_Dataset_2019_2021.csv",
