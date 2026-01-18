@@ -1,4 +1,4 @@
-################################
+############Authors#############
 #~~~HARDY Erwan et FRITZ Leo~~~#
 ################################
 
@@ -72,12 +72,6 @@ reported_cases <- data_all %>%
 
 # Check for consistency
 head(reported_cases)
-
-#########
-#   #   #
-#  ###  # Attention à la signification de la colonne "Total" !!!
-# ##### #
-#########
 
 # Compute a dataset with Sri Lankan monthly cases
 Data_monthly = reported_cases %>%
@@ -191,7 +185,42 @@ test = solve_determistic(c(100, 100, 75), 156, Z, 1)
 ################# 1st fit ################
 # L'objectif ici est de fit z (le ratio du nombre de moustiques par rapport au
 # nombre d'humains) pour l'ensemble des districts aggregés et pour plusieurs et
-# sur plusieurs intervalles de temps (on suppose que z change toutes les 2, 4, 8, 16 semaines)
-# et on compare avec les AICs du modèle fitté : on justfie comme ça le choix de
-# la periodicité (sans Fast Fourier Transform, même si en vrai c'est pas très
-# compliqué)
+# sur plusieurs intervalles de temps (on suppose que z change toutes les 2, 4, 8
+# , 16 semaines)et on compare avec les AICs du modèle fitté : on justfie comme 
+# ça le choix de la periodicité (sans Fast Fourier Transform, même si en vrai 
+# c'est pas très compliqué)
+
+########### Climate data per period ##### 
+colnames(weather)[1] = "dates" 
+weather = separate(weather, dates, c('year', 'month', 'day'), sep = "-",remove = FALSE)
+
+nb_month_in_period = 2 # Period = 2 months
+weather_periodized = weather %>%
+  mutate(
+    month = as.integer(month),
+    period = ceiling(month / nb_month_in_period)) %>%
+  group_by(year, period) %>%
+  summarise(
+    minTemp = min(temperature_2m_min, na.rm = TRUE),
+    maxTemp = max(temperature_2m_max, na.rm = TRUE),
+    meanTemp = mean(temperature_2m_mean, na.rm = TRUE),
+    meanPrecip = mean(precipitation_sum, na.rm = TRUE),
+    cumulPrecip = sum(precipitation_sum, na.rm = TRUE),
+    meanEvap = mean(et0_fao_evapotranspiration, na.rm = TRUE),
+    cumulEvap = sum(et0_fao_evapotranspiration, na.rm = TRUE),
+    meanMaxWind = mean(windspeed_10m_max, na.rm = TRUE),
+    meanGusts = mean(windgusts_10m_max, na.rm = TRUE))
+
+########## z VS climate vars ############
+z_patricules_file_path = "~/Documents/Master/M2/MEPI/all_accepted_particles_inference1.csv"
+z_estim = read.csv(z_patricules_file_path)
+# On recupere les particules (distributions des parametres z_t) pour la dernière
+# génération de l'ABC SMC (normalement, ces distributions convergent vers les 
+# distributions des paramètres)
+last_gen = z_estim %>%
+  filter(gen == max(gen))%>%
+  select(-c(model,dist1,pWeight))
+# On peut recupérer brièvement la moyenne de chacun des z
+summary(last_gen)
+
+
