@@ -219,8 +219,19 @@ z_estim = read.csv(z_patricules_file_path)
 # distributions des paramètres)
 last_gen = z_estim %>%
   filter(gen == max(gen))%>%
-  select(-c(model,dist1,pWeight))
+  select(-c(gen,model,dist1,pWeight))
 # On peut recupérer brièvement la moyenne de chacun des z
 summary(last_gen)
 
+# We need to define a function to compute the max of the distrib
+MAP <- function(x){
+  d <- density(x)
+  mode_value <- d$x[which.max(d$y)]
+  return(mode_value)
+}
 
+last_gen_mode <- apply(last_gen, 2, MAP)
+plot(last_gen_mode, type='l', ylab = "z", xlab = "Time")
+
+model = lm(last_gen_mode~weather_periodized$meanPrecip)
+anova(model)
