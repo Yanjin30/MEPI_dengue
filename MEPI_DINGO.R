@@ -231,7 +231,8 @@ MAP <- function(x){
 }
 
 last_gen_mode <- apply(last_gen, 2, MAP)
-plot(last_gen_mode, type='l', ylab = "z", xlab = "Time")
+plot(last_gen_mode, ylab = "z", xlab = "Time")
+lines(last_gen_mode, col="darkorchid")
 
 model = lm(last_gen_mode~weather_periodized$meanPrecip)
 anova(model)
