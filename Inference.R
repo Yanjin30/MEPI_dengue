@@ -8,8 +8,8 @@
 # l'échelle des districts administratifs.                                      #
 ################################################################################
 
-#setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
-setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
+#setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
 
 # Import
 #devtools::install_github("GaelBn/BRREWABC")
@@ -70,13 +70,14 @@ head(reported_cases)
 #########
 
 # Compute a dataset with Sri Lankan monthly cases
-SriLankan_monthly = reported_cases %>%
-  group_by(Date)%>%
-  summarise(SriLankanCases = sum(Cases))
+Data_monthly = reported_cases %>%
+  group_by(Date, Province, District) %>%
+  summarise(Cases = sum(Cases))
+Data_monthly$Province = as.factor(Data_monthly$Province)
 
-Provincial_monthly = reported_cases %>%
-  group_by(Date, Province)%>%
-  summarise(PotentialCases = sum(Cases))
+SriLankan_monthly = Data_monthly %>%
+  group_by(Date) %>%
+  summarise(Cases = sum(Cases))
 
 # Import weather data
 weather = read.csv(
@@ -87,7 +88,7 @@ weather = read.csv(
 )
 
 ################ Data plotting to see the trends ############
-ggplot(data = SriLankan_monthly, aes(x=Date, y=SriLankanCases))+
+ggplot(data = SriLankan_monthly, aes(x=Date, y=Cases))+
   geom_area(fill='orchid3', col='black',alpha=0.3)+
   labs(title =  "Sri Lankan pooled data (no district considered)", y = "Reported cases")+
   theme_minimal()
@@ -324,7 +325,7 @@ distance_deter = function(x, ssobs) {
 z_priors = list("m1"=lapply(1:18, function(i) c(paste0("z", i), "unif", 0, 3)))
 
 model_list = list("m1" = distance_deter)
-ss_obs=SriLankan_monthly$SriLankanCases
+ss_obs=SriLankan_monthly$Cases
 res = abcsmc(model_list = model_list, prior_dist = z_priors,
              ss_obs = ss_obs, max_number_of_gen = 60, nb_acc_prtcl_per_gen = 3000,
              new_threshold_quantile = 0.8, experiment_folderpath = "C:/Users/Nitro/Documents/Cours/Inf",
