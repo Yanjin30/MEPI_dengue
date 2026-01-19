@@ -223,7 +223,7 @@ last_gen = z_estim %>%
 # On peut recupérer brièvement la moyenne de chacun des z
 summary(last_gen)
 
-# We need to define a function to compute the max of the distrib
+# We need to define a function to compute the max of the distribution
 MAP <- function(x){
   d <- density(x)
   mode_value <- d$x[which.max(d$y)]
