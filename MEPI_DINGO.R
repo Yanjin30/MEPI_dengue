@@ -17,6 +17,7 @@ library(deSolve)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(lubridate)
 
 # Import datasets
 data19 = read.csv(
@@ -212,7 +213,7 @@ weather_periodized = weather %>%
     meanGusts = mean(windgusts_10m_max, na.rm = TRUE))
 
 ########## z VS climate vars ############
-z_patricules_file_path = "~/Documents/Master/M2/MEPI/all_accepted_particles_inference1.csv"
+z_patricules_file_path = "~/Documents/Master/M2/MEPI/all_accepted_particles2.csv"
 z_estim = read.csv(z_patricules_file_path)
 # On recupere les particules (distributions des parametres z_t) pour la dernière
 # génération de l'ABC SMC (normalement, ces distributions convergent vers les 
@@ -224,15 +225,32 @@ last_gen = z_estim %>%
 summary(last_gen)
 
 # We need to define a function to compute the max of the distribution
-MAP <- function(x){
-  d <- density(x)
-  mode_value <- d$x[which.max(d$y)]
+MAP = function(x){
+  d = density(x)
+  mode_value = d$x[which.max(d$y)]
   return(mode_value)
 }
 
-last_gen_mode <- apply(last_gen, 2, MAP)
-plot(last_gen_mode, ylab = "z", xlab = "Time")
-lines(last_gen_mode, col="darkorchid")
+last_gen_mode = apply(last_gen, 2, MAP)
+z_estim = as.data.frame(cbind(last_gen_mode,
+                      weather_periodized$year,
+                      weather_periodized$period))
+colnames(z_estim) = c("Mode","Year","Period")
 
-model = lm(last_gen_mode~weather_periodized$meanPrecip)
+z_estim = z_estim %>%
+  mutate(
+    Month = (as.numeric(Period) - 1) * nb_month_in_period + ceiling(nb_month_in_period / 2),
+    Date = as.Date(paste(Year, Month, "1", sep = "-"))
+)
+
+par(mfrow=c(1,1))
+ggplot(data = z_estim, aes(x=Date,y=Mode))+
+  geom_point()+
+  geom_line()
+
+plot(z_estim$Mode, ylab = "z", xlab = "Time")
+lines(z_estim$Mode, col="darkorchid")
+
+model = lm(z_estim$Mode~weather_periodized$meanPrecip)
 anova(model)
+
