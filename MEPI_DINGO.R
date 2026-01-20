@@ -153,7 +153,7 @@ modele_dengue_deter = function(t, y, param) {
 }
 
 ## Fonction qui réalise une simulation à partir d'un modèle (ODE)
-solve_determistic = function(y, tmax, param, delta_t) {
+solve_determistic = function(y, tmax, param, delta_t, plot = FALSE) {
   # Definition du pas de temps
   temps = seq(0, tmax, delta_t)
   
@@ -166,7 +166,7 @@ solve_determistic = function(y, tmax, param, delta_t) {
     method = "rk4"
   )
   
-  # Visualisation
+  if(plot){# Visualisation
   par(mfrow = c(1, 2))
   plot(
     result[, 1],
@@ -176,12 +176,12 @@ solve_determistic = function(y, tmax, param, delta_t) {
     ylim = c(0, 10000)
   )
   lines(result[, 1], result[, 2], type = "l", col = "red")
-  plot(result[, 1], result[, 4], type = "l")
+  plot(result[, 1], result[, 4], type = "l")}
   return(result)
 }
 
 Z = seq(0.1, 1.8, 0.1)
-test = solve_determistic(c(100, 100, 75), 156, Z, 1)
+test = solve_determistic(c(100, 100, 75), 156, Z, 1, plot = TRUE)
 
 ################# 1st fit ################
 # L'objectif ici est de fit z (le ratio du nombre de moustiques par rapport au
@@ -246,7 +246,7 @@ z_estim = z_estim %>%
 par(mfrow=c(1,1))
 ggplot(data = z_estim, aes(x=Date,y=Mode))+
   geom_point()+
-  geom_line()
+  geom_line(col="darkorchid")
 
 plot(z_estim$Mode, ylab = "z", xlab = "Time")
 lines(z_estim$Mode, col="darkorchid")
@@ -254,3 +254,5 @@ lines(z_estim$Mode, col="darkorchid")
 model = lm(z_estim$Mode~weather_periodized$meanPrecip)
 anova(model)
 
+model = lm(z_estim$Mode~weather_periodized$meanTemp)
+anova(model)
