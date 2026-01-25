@@ -8,8 +8,8 @@
 # l'échelle des districts administratifs.                                      #
 ################################################################################
 
-setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
-#setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+#setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
+setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
 
 # Import
 #devtools::install_github("GaelBn/BRREWABC")
@@ -49,25 +49,30 @@ data_all <- rbind(data19, data20, data21)
 
 # Tidy and mutate the binded dataset
 reported_cases <- data_all %>%
-  pivot_longer(
-    cols = Jan:Dec,
-    names_to = "Month",
-    values_to = "Cases") %>%
-  mutate(
-    Month = match(Month,
-                  c("Jan","Feb","Mar","Apr","May","June",
-                    "July","Aug","Sept","Oct","Nov","Dec")),
-    Date = as.Date(paste(Year, Month, 30, sep = "-"))
-  )
+  pivot_longer(cols = Jan:Dec,
+               names_to = "Month",
+               values_to = "Cases") %>%
+  mutate(Month = match(
+    Month,
+    c(
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "June",
+      "July",
+      "Aug",
+      "Sept",
+      "Oct",
+      "Nov",
+      "Dec"
+    )
+  ), Date = as.Date(paste(Year, Month, 30, sep = "-"))) %>%
+  filter(Province != "TOTAL")
 
 # Check for consistency
 head(reported_cases)
-
-#########
-#   #   #
-#  ###  # Attention à la signification de la colonne "Total" !!!
-# ##### #
-#########
 
 # Compute a dataset with Sri Lankan monthly cases
 Data_monthly = reported_cases %>%
@@ -88,9 +93,16 @@ weather = read.csv(
 )
 
 ################ Data plotting to see the trends ############
-ggplot(data = SriLankan_monthly, aes(x=Date, y=Cases))+
-  geom_area(fill='orchid3', col='black',alpha=0.3)+
-  labs(title =  "Sri Lankan pooled data (no district considered)", y = "Reported cases")+
+ggplot(data = SriLankan_monthly, aes(x = Date, y = Cases)) +
+  geom_area(fill = 'orchid3',
+            col = 'black',
+            alpha = 0.4) +
+  labs(title =  "Sri Lankan pooled data (no district considered)", y = "Reported cases") +
+  theme_minimal()
+
+ggplot(data = Data_monthly, aes(x = Date, y = Cases)) +
+  geom_area(aes(fill = Province), col = 'black', alpha = 0.3) +
+  labs(title =  "Reported case per province", y = "Reported cases") +
   theme_minimal()
 
 
@@ -328,20 +340,20 @@ model_list = list("m1" = distance_deter)
 ss_obs=SriLankan_monthly$Cases
 res = abcsmc(model_list = model_list, prior_dist = z_priors,
              ss_obs = ss_obs, max_number_of_gen = 60, nb_acc_prtcl_per_gen = 3000,
-             new_threshold_quantile = 0.8, experiment_folderpath = "C:/Users/Nitro/Documents/Cours/Inf",
+             new_threshold_quantile = 0.8, max_attempts = 200000, experiment_folderpath = "C:/Users/Nitro/Documents/Cours/Inf",
              max_concurrent_jobs = 12, verbose = TRUE,progressbar = TRUE,acceptance_rate_min = 0.001)
 all_accepted_particles = res$particles
 all_thresholds = res$thresholds
-plot_abcsmc_res(data = all_accepted_particles, prior = z_priors, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "abcsmc_results.png"),iter=52)
+plot_abcsmc_res(data = all_accepted_particles, prior = z_priors, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "abcsmc_results.png"),iter=60)
 plot_thresholds(data = all_thresholds, nb_threshold = 1, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "thresholds.png"))
 plot_ess(data = all_accepted_particles, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "ess.png"))
 plot_densityridges(data = all_accepted_particles, prior = z_priors, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "densityridges.png"))
 #### Trajectoire avec les particules de la génération 52 (intervalle de confiance tout ça tout)
 y0 = c(100, 0, 800)
-part_to_simulate=all_accepted_particles[all_accepted_particles$gen==52,seq(3,20,1)]
-simulation_result_inf=matrix(nrow=length(part_to_simulate$z1),ncol=156)
-simulation_result_recov=matrix(nrow=length(part_to_simulate$z1),ncol=156)
-simulation_result_stik=matrix(nrow=length(part_to_simulate$z1),ncol=156)
+part_to_simulate=all_accepted_particles[all_accepted_particles$gen==60,seq(3,20,1)]
+simulation_result_inf=matrix(nrow=length(part_to_simulate$z1),ncol=157)
+simulation_result_recov=matrix(nrow=length(part_to_simulate$z1),ncol=157)
+simulation_result_stik=matrix(nrow=length(part_to_simulate$z1),ncol=157)
 for (line in 1:length(part_to_simulate$z1)){
   simulation=simulation_deter(y0, 156, part_to_simulate[line,], 1)
   simulation_result_inf[line,]=simulation[,2]
@@ -349,18 +361,22 @@ for (line in 1:length(part_to_simulate$z1)){
   simulation_result_stik[line,]=simulation[,4]
 }
 
-simulation_summary=as.data.frame(simulation_result)%>%
+library(dplyr)
+library(tidyr)
+
+simulation_long <- as.data.frame(simulation_result_inf) %>%
   mutate(traj = row_number()) %>%
   pivot_longer(
     cols = -traj,
-    names_to = "time",
     values_to = "value"
   ) %>%
+  group_by(traj) %>%
   mutate(
-    time = as.numeric(time)
-  )
+    time = row_number() - 1   # ou row_number() si 1..157
+  ) %>%
+  ungroup()
 
-simulation_summary = simulation_summary %>%
+simulation_long = simulation_long %>%
   group_by(time) %>%
   summarise(
     mean   = mean(value, na.rm = TRUE),
@@ -368,22 +384,184 @@ simulation_summary = simulation_summary %>%
     low90  = quantile(value, 0.05, na.rm = TRUE),
     high90 = quantile(value, 0.95, na.rm = TRUE)
   )
-ggplot(df, aes(x = time, y = value, group = traj)) +
-  geom_line(alpha = 0.02, color = "steelblue") +
-  geom_ribbon(
-    data = df_summary,
-    aes(ymin = low90, ymax = high90),
-    fill = "grey70",
-    alpha = 0.4,
-    inherit.aes = FALSE
+
+library(ggplot2)
+### Cas totaux simulées par le modèle  
+ggplot(simulation_long, aes(x = time)) +
+  geom_line(
+    aes(y = mean, color = "Moyenne", linetype = "Moyenne"),
+    linewidth = 1
   ) +
   geom_line(
-    data = df_summary,
-    aes(x = time, y = median),
-    linewidth = 1.2,
-    color = "black"
+    aes(y = median, color = "Médiane", linetype = "Médiane"),
+    linewidth = 1
   ) +
-  theme_minimal()
+  geom_line(
+    aes(y = low90, color = "IC 90%", linetype = "IC 90%"),
+    linewidth = 0.8
+  ) +
+  geom_line(
+    aes(y = high90, color = "IC 90%", linetype = "IC 90%"),
+    linewidth = 0.8
+  ) +
+  scale_color_manual(
+    name = "Statistique",
+    values = c("Moyenne" = "red", "Médiane" = "blue", "IC 90%" = "blue")
+  ) +
+  scale_linetype_manual(
+    name = "Statistique",
+    values = c("Moyenne" = "solid", "Médiane" = "solid", "IC 90%" = "dashed")
+  ) +
+  
+  labs(
+    x = "Temps (en semaine)",
+    y = "Nombre d'infecté",
+    title = "Dynamique d'infection chez l'homme"
+  ) +
+  coord_cartesian(ylim = c(0, 1e6))+
+  theme_minimal() 
+### A 5 % de population 
+par(mfrow=c(1,2))
+simulation_long <- as.data.frame(simulation_result_inf) %>%
+  mutate(traj = row_number()) %>%
+  pivot_longer(
+    cols = -traj,
+    values_to = "value"
+  ) %>%
+  group_by(traj) %>%
+  mutate(
+    time = row_number() - 1   # ou row_number() si 1..157
+  ) %>%
+  ungroup()
+
+simulation_long = simulation_long %>%
+  group_by(time) %>%
+  summarise(
+    mean   = 0.05 * mean(value, na.rm = TRUE),
+    median = 0.05 * median(value, na.rm = TRUE),
+    low90  = 0.05 * quantile(value, 0.05, na.rm = TRUE),
+    high90 = 0.05 * quantile(value, 0.95, na.rm = TRUE)
+  )
+
+library(ggplot2)
+### Cas totaux simulées par le modèle  
+ggplot(simulation_long, aes(x = time)) +
+  geom_line(
+    aes(y = mean, color = "Moyenne", linetype = "Moyenne"),
+    linewidth = 1
+  ) +
+  geom_line(
+    aes(y = median, color = "Médiane", linetype = "Médiane"),
+    linewidth = 1
+  ) +
+  geom_line(
+    aes(y = low90, color = "IC 90%", linetype = "IC 90%"),
+    linewidth = 0.8
+  ) +
+  geom_line(
+    aes(y = high90, color = "IC 90%", linetype = "IC 90%"),
+    linewidth = 0.8
+  ) +
+  scale_color_manual(
+    name = "Statistique",
+    values = c("Moyenne" = "red", "Médiane" = "blue", "IC 90%" = "blue")
+  ) +
+  scale_linetype_manual(
+    name = "Statistique",
+    values = c("Moyenne" = "solid", "Médiane" = "solid", "IC 90%" = "dashed")
+  ) +
+  
+  labs(
+    x = "Temps (en semaine)",
+    y = "Nombre d'infecté",
+    title = "Dynamique d'infection chez l'homme, 5% des cas observés"
+  ) +
+  coord_cartesian(ylim = c(0, 1e6 * 0.05))+
+  theme_minimal() 
+
+## Mensuel
+weekly_simu = matrix(nrow = nrow(simulation_result_inf), ncol = 34)
+
+results_list = list()
+
+for (line in 1:nrow(simulation_result_inf)) {
+  result = summary_extract(
+    vect_inf = simulation_result_inf[line, ],
+    vect_recov = simulation_result_recov[line, ]
+  )
+  results_list[[line]] = result
+}
+
+# Convertir en matrice (si tous les résultats ont la même longueur)
+weekly_simu = do.call(rbind, results_list)
+
+# Vérifier les dimensions
+dim(weekly_simu)
+head(weekly_simu)
+
+## 
+simulation_long <- as.data.frame(weekly_simu) %>%
+  mutate(traj = row_number()) %>%
+  pivot_longer(
+    cols = -traj,
+    values_to = "value"
+  ) %>%
+  group_by(traj) %>%
+  mutate(
+    time = row_number() - 1   # ou row_number() si 1..157
+  ) %>%
+  ungroup()
+
+simulation_long = simulation_long %>%
+  group_by(time) %>%
+  summarise(
+    mean   = 0.05 * mean(value, na.rm = TRUE),
+    median = 0.05 * median(value, na.rm = TRUE),
+    low90  = 0.05 * quantile(value, 0.05, na.rm = TRUE),
+    high90 = 0.05 * quantile(value, 0.95, na.rm = TRUE)
+  )
+
+library(ggplot2)
+SriLankan_monthly$time=seq(0,33,1)
+### Cas totaux simulées par le modèle  
+ggplot(simulation_long, aes(x = time)) +
+  geom_line(
+    aes(y = mean, color = "Moyenne", linetype = "Moyenne"),
+    linewidth = 1
+  ) +
+  geom_line(
+    aes(y = median, color = "Médiane", linetype = "Médiane"),
+    linewidth = 1
+  ) +
+  geom_line(
+    aes(y = low90, color = "IC 90%", linetype = "IC 90%"),
+    linewidth = 0.8
+  ) +
+  geom_line(
+    aes(y = high90, color = "IC 90%", linetype = "IC 90%"),
+    linewidth = 0.8
+  ) +
+  geom_point(
+    data = SriLankan_monthly,  # votre tableau avec les points
+    aes(x = time, y = Cases, color = "Données observées",linetype="Données observées"),
+    size = 2
+  ) +
+  scale_color_manual(
+    name = "Statistique",
+    values = c("Moyenne" = "red", "Médiane" = "blue", "IC 90%" = "blue","Données observées"="purple")
+  ) +
+  scale_linetype_manual(
+    name = "Statistique",
+    values = c("Moyenne" = "solid", "Médiane" = "solid", "IC 90%" = "dashed","Données observées"=NA)
+  ) +
+  
+  labs(
+    x = "Temps (en mois)",
+    y = "Nombre d'infecté",
+    title = "Dynamique d'infection chez l'homme, 5% des cas observés"
+  ) +
+  coord_cartesian(ylim = c(0, 40000))+
+  theme_minimal() 
 ############# Stochastique ###############
 modele_dengue_stoch = function(Sh0, Ih0, Rh0, Sv0, Iv0, param, tmax) {
   Sh = Sh0
