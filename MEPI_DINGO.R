@@ -8,8 +8,8 @@
 # l'échelle des districts administratifs.                                      #
 ################################################################################
 
-setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
-#setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+#setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
+setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
 
 # Import
 library(BRREWABC)
@@ -190,6 +190,8 @@ test = solve_determistic(c(100, 100, 75), 156, Z, 1, plot = TRUE)
 # , 16 semaines)et on compare avec les AICs du modèle fitté : on justfie comme 
 # ça le choix de la periodicité (sans Fast Fourier Transform, même si en vrai 
 # c'est pas très compliqué)
+
+
 
 ########### Climate data per period ##### 
 colnames(weather)[1] = "dates" 
