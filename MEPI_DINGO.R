@@ -3,9 +3,7 @@
 ################################
 
 ################################################################################
-# Script pour l'étude d'une épidemie de dengue au Sri Lanka entre 2019 et 2022 #
-# Prise en compte des migrations inter-urbaines et de la pluviométrie à        #
-# l'échelle des districts administratifs.                                      #
+# Script pour l'étude d'une épidemie de dengue au Sri Lanka entre 2019 et 2022 #                                     #
 ################################################################################
 
 #setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
@@ -89,8 +87,7 @@ weather = read.csv(
   file = "SriLanka_Weather_Dataset_2019_2021.csv",
   header = TRUE,
   sep = ",",
-  dec = "."
-)
+  dec = ".")
 
 ################ Data plotting to see the trends ############
 ggplot(data = SriLankan_monthly, aes(x = Date, y = Cases)) +
@@ -100,15 +97,79 @@ ggplot(data = SriLankan_monthly, aes(x = Date, y = Cases)) +
   labs(title =  "Sri Lankan pooled data (no district considered)", y = "Reported cases") +
   theme_minimal()
 
-ggplot(data = Data_monthly, aes(x = Date, y = Cases)) +
-  geom_area(aes(fill = Province), col = 'black', alpha = 0.3) +
-  labs(title =  "Reported case per province", y = "Reported cases") +
+ggplot(data = SriLankan_monthly, aes(x = Date, y = Cases)) +
+  geom_point(col = 'blue') +
+  geom_line(col = 'black') +
+  labs(title =  "Sri Lankan pooled data (no district considered)", y = "Reported cases") +
   theme_minimal()
 
-################ Deterministic model ########################
+################ Modèle avec z constant ####################
+model_determinist = function(t, y, z) {
+  # Définition des paramètres fixés
+  gamma = 1 / 2
+  beta_v = 0.375
+  mu_v = 1 / 6
+  mu_h = 0
+  beta_h = 0.7
+  
+  # Définition des classes de population - humains
+  Ih = y[1]
+  Rh = y[2]
+  
+  Nh = 10000
+  
+  # Moustiques
+  Iv = y[3]
+  Nv = z * Nh
+  
+  # Définition des dérivées
+  dIdt = -(gamma + mu_h) * Ih + beta_h * z * Iv  * (Nh - Ih - Rh) / Nh
+  dRdt = gamma * Ih - mu_h * Rh
+  dVdt = beta_v * (Nv - Iv) * Ih / Nh - mu_v * Iv
+  
+  return(list(c(dIdt, dRdt, dVdt)))}
+
+all_solutions <- list()
+for (z in seq(0, 2, 0.25)) {
+  sol <- ode(
+    y = c(Ih = 100, Rh = 0, Iv = 10),
+    times = seq(0, 75, 0.25),
+    func = model_determinist,
+    parms = z,
+    method = "rk4"
+  )
+  
+  sol <- as.data.frame(sol)
+  sol$z <- z  # on garde la valeur de z
+  all_solutions[[as.character(z)]] <- sol
+  }
+
+df <- bind_rows(all_solutions)
+df$z <- as.factor(df$z)
+df_long <- df %>%
+  pivot_longer(
+    cols = c(Ih, Rh, Iv),
+    names_to = "compartment",
+    values_to = "value"
+  )
+
+ggplot(
+  df_long %>% filter(compartment == "Ih"),
+  aes(x = time, y = value, color = z, group = z)
+) +
+  geom_line() +
+  labs(
+    title = "Trajectoires des I pour différentes valeurs de z",
+    x = "Temps",
+    y = "Nombre d'humains infectés",
+    color = "z"
+  ) +
+  theme_minimal()
+
+################ Deterministic model with varying z #######################
 z_t <- function(Z, t) {
   period = seq(9, 162, 9)
-  for (j in 1:length(period)) {
+  for (j in 1:length(period)){
     if (t < period[j]) {
       print(j)
       zt = Z[j]
@@ -192,7 +253,6 @@ test = solve_determistic(c(100, 100, 75), 156, Z, 1, plot = TRUE)
 # c'est pas très compliqué)
 distance_deter = function(x, ssobs) {
   ### Définition de toutes les fonctions pour ABC, on reprend les fonctions définies plus haut
-  library(deSolve)
   
   ## Fonction pour résumer nos trajectoires de façon mensuels
   summary_extract = function(vect_inf, vect_recov) {
@@ -322,7 +382,6 @@ res = abcsmc(model_list = model_list, prior_dist = z_priors,
              new_threshold_quantile = 0.8, max_attempts = 200000, experiment_folderpath = "C:/Users/Nitro/Documents/Cours/Inf",
              max_concurrent_jobs = 12, verbose = TRUE,progressbar = TRUE,acceptance_rate_min = 0.001)
 
-
 ## Exctraction des résultats
 all_accepted_particles = res$particles
 all_thresholds = res$thresholds
@@ -347,8 +406,6 @@ for (line in 1:length(part_to_simulate$z1)){
   simulation_result_stik[line,]=simulation[,4]
 }
 
-library(dplyr)
-library(tidyr)
 
 simulation_long <- as.data.frame(simulation_result_inf) %>%
   mutate(traj = row_number()) %>%
@@ -372,7 +429,6 @@ simulation_long = simulation_long %>%
   )
 
 ### GGPLOT de la dynamique du modèle sans observation (100 % des cas du modèle)
-library(ggplot2)
 ggplot(simulation_long, aes(x = time)) +
   geom_line(
     aes(y = mean, color = "Moyenne", linetype = "Moyenne"),
@@ -429,7 +485,6 @@ simulation_long = simulation_long %>%
     high90 = 0.05 * quantile(value, 0.95, na.rm = TRUE)
   )
 
-library(ggplot2)
 ### GGPLOT à la semaine des simulations à 5% de cas observées 
 ggplot(simulation_long, aes(x = time)) +
   geom_line(
@@ -507,7 +562,6 @@ simulation_long = simulation_long %>%
     high90 = 0.05 * quantile(value, 0.95, na.rm = TRUE)
   )
 ### GGPLOT des simulations mensuels à 5%  
-library(ggplot2)
 SriLankan_monthly$time=seq(0,33,1)
 ggplot(simulation_long, aes(x = time)) +
   geom_line(
