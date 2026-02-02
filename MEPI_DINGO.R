@@ -608,104 +608,129 @@ ggplot(simulation_long, aes(x = time)) +
 # ================================================================
 # Modele stochastique par Tau-Leaping
 distance_stochastic <- function(x, ssobs) {
+  
+  ## -------- Fonction z(t) --------
   z_t <- function(Z, t) {
-    period = seq(9, 162, 9)
-    for (j in 1:length(period)) {
-      if (t < period[j]) {
-        return(Z[j])
-      }
+    period <- seq(9, 162, 9)
+    for (j in seq_along(period)) {
+      if (t < period[j]) return(Z[j])
     }
     return(Z[length(Z)])
   }
   
+  ## -------- Modèle tau-leap --------
   modele_dengue_tauleap <- function(y0, Z, tmax, dt = 1) {
-    gamma = 1/2
-    beta_v = 0.375
-    mu_v = 1/6
-    mu_h = 0
-    beta_h = 0.75
-    Nh = 23300000
     
-    Ih = y0[1]
-    Rh = y0[2]
-    Iv = y0[3]
+    gamma <- 1 / 2
+    beta_v <- 0.375
+    mu_v   <- 1 / 6
+    mu_h   <- 0
+    beta_h <- 0.75
+    Nh     <- 23300000
     
-    t = 0
-    res = data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv)
+    Ih <- y0[1]
+    Rh <- y0[2]
+    Iv <- y0[3]
+    
+    t <- 0
+    res <- data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv)
     
     while (t < tmax) {
-      z = z_t(Z, t)
-      Nv = z * Nh
       
-      rate_inf_h = beta_h * z * Iv * (Nh - Ih - Rh) / Nh
-      rate_rec_h = gamma * Ih
-      rate_inf_v = beta_v * (Nv - Iv) * Ih / Nh
-      rate_die_v = mu_v * Iv
+      z <- z_t(Z, t)
+      Nv <- max(z * Nh, 1)   # sécurité numérique
       
-      n_inf_h = rpois(1, rate_inf_h * dt)
-      n_rec_h = rpois(1, rate_rec_h * dt)
-      n_inf_v = rpois(1, rate_inf_v * dt)
-      n_die_v = rpois(1, rate_die_v * dt)
+      rate_inf_h <- beta_h * z * Iv * (Nh - Ih - Rh) / Nh
+      rate_rec_h <- gamma * Ih
+      rate_inf_v <- beta_v * (Nv - Iv) * Ih / Nh
+      rate_die_v <- mu_v * Iv
       
-      Ih = max(Ih + n_inf_h - n_rec_h, 0)
-      Rh = max(Rh + n_rec_h, 0)
-      Iv = max(Iv + n_inf_v - n_die_v, 0)
+      # Sécurité contre taux négatifs / NA
+      rates <- pmax(c(rate_inf_h, rate_rec_h, rate_inf_v, rate_die_v), 0)
       
-      t = t + dt
-      res = rbind(res, data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv))
+      n_inf_h <- rpois(1, rates[1] * dt)
+      n_rec_h <- rpois(1, rates[2] * dt)
+      n_inf_v <- rpois(1, rates[3] * dt)
+      n_die_v <- rpois(1, rates[4] * dt)
+      
+      Ih <- max(Ih + n_inf_h - n_rec_h, 0)
+      Rh <- max(Rh + n_rec_h, 0)
+      Iv <- max(Iv + n_inf_v - n_die_v, 0)
+      
+      t <- t + dt
+      res <- rbind(res, data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv))
     }
     
     return(res)
   }
   
-  # Simulation multiple (Monte Carlo interne)
+  ## -------- Monte Carlo interne --------
   simulate_stochastic <- function(y0, Z, tmax, dt, nrep) {
-    sims = vector("list", nrep)
-    for (k in 1:nrep) {
-      sims[[k]] = modele_dengue_tauleap(y0, Z, tmax, dt)
+    sims <- vector("list", nrep)
+    for (k in seq_len(nrep)) {
+      sims[[k]] <- modele_dengue_tauleap(y0, Z, tmax, dt)
     }
     return(sims)
   }
   
-  # Extraction des cas mensuels
-  summary_extract <- function(vect_inf, vect_recov) {
-    monthly_new_case = c()
-    u = 1
-    for (i in seq(4, length(vect_inf), 4.6)) {
-      if (u == 1) {
-        monthly_new_case = c(monthly_new_case,
-                             sum(diff(c(0, vect_inf[u:i])) + diff(c(0, vect_recov[u:i]))))
-      } else {
-        monthly_new_case = c(monthly_new_case,
-                             sum(diff(vect_inf[(u-1):i]) + diff(vect_recov[(u-1):i])))
-      }
-      u = i + 1
+  ## -------- Extraction mensuelle --------
+  summary_extract <- function(vect_inf, vect_recov, n_month) {
+    
+    monthly_new_case <- numeric(n_month)
+    breaks <- round(seq(1, length(vect_inf), length.out = n_month + 1))
+    
+    for (m in seq_len(n_month)) {
+      i1 <- breaks[m]
+      i2 <- breaks[m + 1]
+      monthly_new_case[m] <-
+        sum(diff(c(0, vect_inf[i1:i2]))) +
+        sum(diff(c(0, vect_recov[i1:i2])))
     }
+    
     return(monthly_new_case)
   }
   
-  y0 = c(10000, 100000, 0)
+  ## -------- Paramètres --------
+  y0 <- c(10000, 100000, 0)
   
-  Z = numeric(18)
-  for (i in 1:18) Z[i] = x[[paste0("z", i)]]
+  Z <- numeric(18)
+  for (i in 1:18) Z[i] <- x[[paste0("z", i)]]
   
-  sims = simulate_stochastic(y0 = y0, Z = Z, tmax = 156, dt = 1, nrep = 10)
+  ## -------- Simulations --------
+  sims <- simulate_stochastic(
+    y0 = y0,
+    Z = Z,
+    tmax = 156,
+    dt = 1,
+    nrep = 10
+  )
   
-  monthly_cases = matrix(NA, nrow = length(sims), ncol = length(ssobs))
+  n_month <- length(ssobs)
+  monthly_cases <- matrix(NA, nrow = length(sims), ncol = n_month)
   
-  for (k in 1:length(sims)) {
-    Ih = sims[[k]]$Ih
-    Rh = sims[[k]]$Rh
-    monthly_cases[k, ] = summary_extract(Ih, Rh)
+  for (k in seq_along(sims)) {
+    Ih <- sims[[k]]$Ih
+    Rh <- sims[[k]]$Rh
+    monthly_cases[k, ] <- summary_extract(Ih, Rh, n_month)
   }
   
-  mean_monthly_cases = colMeans(monthly_cases, na.rm = TRUE)
+  ## -------- Moyenne MC --------
+  mean_monthly_cases <- colMeans(monthly_cases, na.rm = TRUE)
   
-  obs_sim = rbinom(n = length(mean_monthly_cases),
-                   size = pmax(0, round(mean_monthly_cases)),
-                   prob = 0.05)
+  if (any(!is.finite(mean_monthly_cases))) {
+    return(Inf)   # CRUCIAL pour ABC
+  }
   
-  dist = sum((obs_sim - ssobs)^2)
+  ## -------- Observation bruitée --------
+  obs_sim <- rpois(
+    n = length(mean_monthly_cases),
+    lambda = pmax(mean_monthly_cases, 0)
+  )
+  
+  ## -------- Distance --------
+  dist <- sum((obs_sim - ssobs)^2)
+  
+  if (!is.finite(dist)) dist <- Inf
   return(dist)
 }
 
