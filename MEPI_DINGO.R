@@ -114,7 +114,7 @@ model_determinist = function(t, y, beta_h) {
   beta_v = 0.375
   mu_v = 1 / 6
   mu_h = 0
-
+  
   # Définition des classes de population - humains
   Ih = y[1]
   Rh = y[2]
@@ -145,7 +145,7 @@ for (beta_h in seq(0, 1.5, 0.25)) {
   sol <- as.data.frame(sol)
   sol$beta_h <- beta_h  # on garde la valeur de beta_h
   all_solutions[[as.character(beta_h)]] <- sol
-  }
+}
 
 df <- bind_rows(all_solutions)
 df$beta_h <- as.factor(df$beta_h)
@@ -227,16 +227,16 @@ solve_determistic = function(y, tmax, param, delta_t, plot = FALSE) {
   )
   
   if(plot){# Visualisation
-  par(mfrow = c(1, 2))
-  plot(
-    result[, 1],
-    result[, 3],
-    type = "l",
-    col = "blue",
-    ylim = c(0, max(result[,3],result[,2]))
-  )
-  lines(result[, 1], result[, 2], type = "l", col = "red")
-  plot(result[, 1], result[, 4], type = "l")}
+    par(mfrow = c(1, 2))
+    plot(
+      result[, 1],
+      result[, 3],
+      type = "l",
+      col = "blue",
+      ylim = c(0, max(result[,3],result[,2]))
+    )
+    lines(result[, 1], result[, 2], type = "l", col = "red")
+    plot(result[, 1], result[, 4], type = "l")}
   return(result)
 }
 
@@ -253,21 +253,19 @@ test = solve_determistic(c(100, 100, 75), 156, Z, 1, plot = TRUE)
 distance_determinist = function(x, ssobs) {
   ### Définition de toutes les fonctions pour ABC
   library(deSolve)
-  summary_extract = function(vect_inf, vect_recov) {
-    monthly_new_case = c()
-    u = 1
-    for (i in seq(4, length(vect_inf), 4.6)) {
-      if (u == 1) {
-        monthly_new_case = c(monthly_new_case, sum(diff(c(0, vect_inf[u:i])) + diff(c(
-          0, vect_recov[u:i]
-        ))))
-      }
-      if (u != 1) {
-        monthly_new_case = c(monthly_new_case, sum(diff(vect_inf[(u - 1):i]) +
-                                                     diff(vect_recov[(u - 1):i])))
-      }
-      u = i + 1
+  summary_extract <- function(vect_inf, vect_recov, n_month) {
+    
+    monthly_new_case <- numeric(n_month)
+    breaks <- round(seq(1, length(vect_inf), length.out = n_month + 1))
+    
+    for (m in seq_len(n_month)) {
+      i1 <- breaks[m]
+      i2 <- breaks[m + 1]
+      monthly_new_case[m] <-
+        sum(diff(c(0, vect_inf[i1:i2]))) +
+        sum(diff(c(0, vect_recov[i1:i2])))
     }
+    
     return(monthly_new_case)
   }
   simulation_determinist = function(y, tmax, param, delta_t) {
@@ -340,7 +338,7 @@ distance_determinist = function(x, ssobs) {
     
     return(list(c(dIdt, dRdt, dVdt)))
   }
-
+  
   ## Fonction de distance
   # Définition des conditions initiales
   y0 = c(10000, 100000, 0)
@@ -360,9 +358,10 @@ distance_determinist = function(x, ssobs) {
   ) # On considère grossièrement que chaque mois -> 30 jours
   infected_dyna = simu[, 2]
   recover_dyna = simu[, 3]
+  n_months = length(ssobs)
   # Création d'un résumé de nos statistiques simulées
-  freq_I_detected = 0.05
-  all_mensual_case = summary_extract(infected_dyna, recover_dyna) # On récupère toutes les nouvelles infection de chaque mois
+  freq_I_detected = 0.54
+  all_mensual_case = summary_extract(infected_dyna, recover_dyna, n_months) # On récupère toutes les nouvelles infection de chaque mois
   all_mensual_case_obs = freq_I_detected*all_mensual_case # Modèle d'observation, hypothèse symptome
   # Comparaison de nos statistiques résumées
   dist = sum((all_mensual_case_obs - ssobs) ** 2)
@@ -527,8 +526,8 @@ results_list = list()
 
 for (line in 1:nrow(simulation_result_inf)) {
   result = summary_extract(
-  vect_inf = simulation_result_inf[line, ],
-  vect_recov = simulation_result_recov[line, ]
+    vect_inf = simulation_result_inf[line, ],
+    vect_recov = simulation_result_recov[line, ]
   )
   results_list[[line]] = result
 }
@@ -707,11 +706,12 @@ distance_stochastic <- function(x, ssobs) {
   
   n_month <- length(ssobs)
   monthly_cases <- matrix(NA, nrow = length(sims), ncol = n_month)
-  
+  freq_I_detected <- 0.54
   for (k in seq_along(sims)) {
     Ih <- sims[[k]]$Ih
     Rh <- sims[[k]]$Rh
     monthly_cases[k, ] <- summary_extract(Ih, Rh, n_month)
+    monthly_cases[k, ] <- rbinom(  n = length(monthly_cases[k,]),  size = pmax(0,round(monthly_cases[k,])),  prob = freq_I_detected)
   }
   
   ## -------- Moyenne MC --------
@@ -805,8 +805,8 @@ MAP = function(x){
 
 last_gen_mode = apply(last_gen, 2, MAP)
 z_estim = as.data.frame(cbind(last_gen_mode,
-                      weather_periodized$year,
-                      weather_periodized$period))
+                              weather_periodized$year,
+                              weather_periodized$period))
 colnames(z_estim) = c("Mode","Year","Period")
 
 z_estim = z_estim %>%
