@@ -6,8 +6,13 @@
 # Script pour l'étude d'une épidemie de dengue au Sri Lanka entre 2019 et 2022 #                                     #
 ################################################################################
 
-#setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
-setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+# Erwan 
+setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
+#path = "~/Documents/Master/M2/MEPI/projet/inference"
+
+# Leo
+#setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+path = "C:/Users/Nitro/Documents/Cours/Inf"
 
 # Import
 library(BRREWABC)
@@ -89,7 +94,7 @@ weather = read.csv(
   sep = ",",
   dec = ".")
 
-################ Data plotting to see the trends ############
+################ Data plotting to see the trends ################
 ggplot(data = SriLankan_monthly, aes(x = Date, y = Cases)) +
   geom_area(fill = 'orchid3',
             col = 'black',
@@ -103,15 +108,14 @@ ggplot(data = SriLankan_monthly, aes(x = Date, y = Cases)) +
   labs(title =  "Sri Lankan pooled data (no district considered)", y = "Reported cases") +
   theme_minimal()
 
-################ Modèle avec z constant ####################
-model_determinist = function(t, y, z) {
+################ Modèle avec beta_h variant ####################
+model_determinist = function(t, y, beta_h) {
   # Définition des paramètres fixés
   gamma = 1 / 2
   beta_v = 0.375
   mu_v = 1 / 6
   mu_h = 0
-  beta_h = 0.7
-  
+
   # Définition des classes de population - humains
   Ih = y[1]
   Rh = y[2]
@@ -120,50 +124,47 @@ model_determinist = function(t, y, z) {
   
   # Moustiques
   Iv = y[3]
-  Nv = z * Nh
+  Nv = Nh
   
   # Définition des dérivées
-  dIdt = -(gamma + mu_h) * Ih + beta_h * z * Iv  * (Nh - Ih - Rh) / Nh
+  dIdt = -(gamma + mu_h) * Ih + beta_h * Iv  * (Nh - Ih - Rh) / Nh
   dRdt = gamma * Ih - mu_h * Rh
   dVdt = beta_v * (Nv - Iv) * Ih / Nh - mu_v * Iv
   
   return(list(c(dIdt, dRdt, dVdt)))}
 
 all_solutions <- list()
-for (z in seq(0, 2, 0.25)) {
+for (beta_h in seq(0, 1.5, 0.25)) {
   sol <- ode(
     y = c(Ih = 100, Rh = 0, Iv = 10),
     times = seq(0, 75, 0.25),
     func = model_determinist,
-    parms = z,
+    parms = beta_h,
     method = "rk4"
   )
   
   sol <- as.data.frame(sol)
-  sol$z <- z  # on garde la valeur de z
-  all_solutions[[as.character(z)]] <- sol
+  sol$beta_h <- beta_h  # on garde la valeur de beta_h
+  all_solutions[[as.character(beta_h)]] <- sol
   }
 
 df <- bind_rows(all_solutions)
-df$z <- as.factor(df$z)
+df$beta_h <- as.factor(df$beta_h)
 df_long <- df %>%
   pivot_longer(
     cols = c(Ih, Rh, Iv),
     names_to = "compartment",
-    values_to = "value"
-  )
+    values_to = "value")
 
 ggplot(
   df_long %>% filter(compartment == "Ih"),
-  aes(x = time, y = value, color = z, group = z)
-) +
+  aes(x = time, y = value, color = beta_h, group = beta_h)) +
   geom_line() +
   labs(
-    title = "Trajectoires des I pour différentes valeurs de z",
+    title = "Trajectoires des I pour différentes valeurs de beta_h",
     x = "Temps",
     y = "Nombre d'humains infectés",
-    color = "z"
-  ) +
+    color = "beta_h") +
   theme_minimal()
 
 ################ Deterministic model with varying z #######################
@@ -171,7 +172,6 @@ z_t <- function(Z, t) {
   period = seq(9, 162, 9)
   for (j in 1:length(period)){
     if (t < period[j]) {
-      print(j)
       zt = Z[j]
       break
     }
@@ -199,7 +199,7 @@ modele_dengue_deter = function(t, y, param) {
   Ih = y[1]
   Rh = y[2]
   
-  Nh = 10000
+  Nh = 23300000
   
   # Moustiques
   Iv = y[3]
@@ -234,27 +234,26 @@ solve_determistic = function(y, tmax, param, delta_t, plot = FALSE) {
     result[, 3],
     type = "l",
     col = "blue",
-    ylim = c(0, 10000)
+    ylim = c(0, max(result[,3],result[,2]))
   )
   lines(result[, 1], result[, 2], type = "l", col = "red")
   plot(result[, 1], result[, 4], type = "l")}
   return(result)
 }
 
-Z = seq(0.1, 1.8, 0.1)
+Z = runif(20,0.2,1.5)
 test = solve_determistic(c(100, 100, 75), 156, Z, 1, plot = TRUE)
 
-################# 1st fit ################
+######################################################################
+######################################################################
+###################### Model deterministe ############################
+######################################################################
+######################################################################
 # L'objectif ici est de fit z (le ratio du nombre de moustiques par rapport au
-# nombre d'humains) pour l'ensemble des districts aggregés et pour plusieurs et
-# sur plusieurs intervalles de temps (on suppose que z change toutes les 2, 4, 8
-# , 16 semaines)et on compare avec les AICs du modèle fitté : on justfie comme 
-# ça le choix de la periodicité (sans Fast Fourier Transform, même si en vrai 
-# c'est pas très compliqué)
-distance_deter = function(x, ssobs) {
-  ### Définition de toutes les fonctions pour ABC, on reprend les fonctions définies plus haut
-  
-  ## Fonction pour résumer nos trajectoires de façon mensuels
+# nombre d'humains) pour l'ensemble des districts aggregés
+distance_determinist = function(x, ssobs) {
+  ### Définition de toutes les fonctions pour ABC
+  library(deSolve)
   summary_extract = function(vect_inf, vect_recov) {
     monthly_new_case = c()
     u = 1
@@ -272,9 +271,7 @@ distance_deter = function(x, ssobs) {
     }
     return(monthly_new_case)
   }
-  
-  ## Fonction qui génére une trajectoire pour un set de Z données
-  simulation_deter = function(y, tmax, param, delta_t) {
+  simulation_determinist = function(y, tmax, param, delta_t) {
     # Definition du pas de temps
     temps = seq(0, tmax, delta_t)
     
@@ -282,15 +279,38 @@ distance_deter = function(x, ssobs) {
     result = ode(
       y = y,
       times = temps,
-      func = modele_dengue_deter,
+      func = modele_dengue_determinist,
       parms = param,
       method = "rk4"
     )
+    
+    # Visualisation
+    par(mfrow = c(1, 2))
+    plot(
+      result[, 1],
+      result[, 3],
+      type = "l",
+      col = "blue",
+      ylim = c(0, 10000)
+    )
+    lines(result[, 1], result[, 2], type = "l", col = "red")
+    plot(result[, 1], result[, 4], type = "l")
     return(result)
   }
   
-  ## Définition des ODEs
-  modele_dengue_deter = function(t, y, param) {
+  # Define z_t as a time-dependent parameter
+  z_t <- function(Z,t){
+    period=seq(9,162,9)
+    for (j in 1:length(period)){
+      if (t<period[j]){
+        zt=Z[j]
+        break
+      }
+    }
+    return(zt)
+  }
+  
+  modele_dengue_determinist = function(t, y, param) {
     # Définition des paramètres à opimiser
     #beta_h = param[1]
     Z = param
@@ -308,7 +328,7 @@ distance_deter = function(x, ssobs) {
     Ih = y[1]
     Rh = y[2]
     
-    Nh = 58500000
+    Nh = 23300000
     
     # Moustiques
     Iv = y[3]
@@ -321,33 +341,19 @@ distance_deter = function(x, ssobs) {
     
     return(list(c(dIdt, dRdt, dVdt)))
   }
-  
-  ## Fonction qui associe un z à une période de temps données
-  z_t <- function(Z,t){
-    period=seq(9,162,9)
-    for (j in 1:length(period)){
-      if (t<period[j]){
-        zt=Z[j]
-        break
-      }
-    }
-    #zt = runif(n = 1, min = 0, max = 1.5)
-    return(zt)
-  }
-  
-  
-  ### Définition de la séquence de calcule de la distance
+
+  ## Fonction de distance
   # Définition des conditions initiales
-  y0 = c(100, 0, 800)
+  y0 = c(10000, 100000, 0)
   
-  # Extraction de z depuis les paramètres donnés dans ABC-SMC
   param=c()
+  
   for (i in 1:18){
     param=c(param,x[[paste0("z",i)]])
   }
-  
   # Simulation de la trajectoire
-  simu = simulation_deter(
+  
+  simu = simulation_determinist(
     y = y0,
     tmax = 156,
     param = param,
@@ -355,15 +361,11 @@ distance_deter = function(x, ssobs) {
   ) # On considère grossièrement que chaque mois -> 30 jours
   infected_dyna = simu[, 2]
   recover_dyna = simu[, 3]
-  
   # Création d'un résumé de nos statistiques simulées
   all_mensual_case = summary_extract(infected_dyna, recover_dyna) # On récupère toutes les nouvelles infection de chaque mois
-  all_mensual_case_obs = rbinom(  n = length(all_mensual_case),  size = pmax(0,round(all_mensual_case)),  prob = 0.05) # Modèle d'observation, hypothèse symptome
-  
-  
+  all_mensual_case_obs = rbinom(n = length(all_mensual_case),  size = pmax(0,round(all_mensual_case)),  prob = 0.05) # Modèle d'observation, hypothèse symptome
   # Comparaison de nos statistiques résumées
   dist = sum((all_mensual_case_obs - ssobs) ** 2)
-  
   return(c(dist))
 }
 ## Inférence des valeurs de z
@@ -371,7 +373,7 @@ distance_deter = function(x, ssobs) {
 z_priors = list("m1"=lapply(1:18, function(i) c(paste0("z", i), "unif", 0, 3)))
 
 # Définition du modèle
-model_list = list("m1" = distance_deter)
+model_list = list("m1" = distance_determinist)
 
 # Définition des statistiques observées
 ss_obs = SriLankan_monthly$Cases
@@ -379,22 +381,21 @@ ss_obs = SriLankan_monthly$Cases
 # Réalisation de l'inférence, hyper-espace en dimension 18 donc on considère une taille de génération très grande (3000 particules/gen)
 res = abcsmc(model_list = model_list, prior_dist = z_priors,
              ss_obs = ss_obs, max_number_of_gen = 60, nb_acc_prtcl_per_gen = 3000,
-             new_threshold_quantile = 0.8, max_attempts = 200000, experiment_folderpath = "C:/Users/Nitro/Documents/Cours/Inf",
-             max_concurrent_jobs = 12, verbose = TRUE,progressbar = TRUE,acceptance_rate_min = 0.001)
+             new_threshold_quantile = 0.8, max_attempts = 200000, experiment_folderpath = path,
+             max_concurrent_jobs = 7, verbose = TRUE,progressbar = TRUE,acceptance_rate_min = 0.001)
 
 ## Exctraction des résultats
 all_accepted_particles = res$particles
 all_thresholds = res$thresholds
 
 ## Plot des différentes figures de l'inférence
-plot_abcsmc_res(data = all_accepted_particles, prior = z_priors, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "abcsmc_results.png"),iter=60)
-plot_thresholds(data = all_thresholds, nb_threshold = 1, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "thresholds.png"))
-plot_ess(data = all_accepted_particles, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "ess.png"))
-plot_densityridges(data = all_accepted_particles, prior = z_priors, colorpal = "YlOrBr", filename = file.path("C:/Users/Nitro/Documents/Cours/Inf", "densityridges.png"))
-
+plot_abcsmc_res(data = all_accepted_particles, prior = z_priors, colorpal = "YlOrBr", filename = file.path(path, "abcsmc_results.png"),iter=60)
+plot_thresholds(data = all_thresholds, nb_threshold = 1, colorpal = "YlOrBr", filename = file.path(path, "thresholds.png"))
+plot_ess(data = all_accepted_particles, colorpal = "YlOrBr", filename = file.path(path, "ess.png"))
+plot_densityridges(data = all_accepted_particles, prior = z_priors, colorpal = "YlOrBr", filename = file.path(path, "densityridges.png"))
 
 #### Trajectoire avec les particules de la génération 60, calcule de la moyenne, medianne et intervalle de confiance à 95%
-y0 = c(100, 0, 800)
+y0 = c(10000, 100000, 0)
 part_to_simulate=all_accepted_particles[all_accepted_particles$gen==60,seq(3,20,1)]
 simulation_result_inf=matrix(nrow=length(part_to_simulate$z1),ncol=157)
 simulation_result_recov=matrix(nrow=length(part_to_simulate$z1),ncol=157)
@@ -405,7 +406,6 @@ for (line in 1:length(part_to_simulate$z1)){
   simulation_result_recov[line,]=simulation[,3]
   simulation_result_stik[line,]=simulation[,4]
 }
-
 
 simulation_long <- as.data.frame(simulation_result_inf) %>%
   mutate(traj = row_number()) %>%
@@ -600,8 +600,66 @@ ggplot(simulation_long, aes(x = time)) +
     title = "Dynamique d'infection chez l'homme, 5% des cas observés"
   ) +
   coord_cartesian(ylim = c(0, 40000))+
-  theme_minimal() 
+  theme_minimal()
 
+######################################################################
+######################################################################
+###################### Model stochastique ############################
+######################################################################
+######################################################################
+modele_dengue_tauleap <- function(y0, param, tmax, dt = 1) {
+  # Paramètres fixes
+  Z = param
+  gamma = 1 / 2
+  beta_v = 0.375
+  mu_v = 1 / 6
+  mu_h = 0
+  beta_h = 0.75
+  Nh = 23300000  # Population SriLanka
+  
+  # Initialisation
+  Ih = y0[1]
+  Rh = y0[2]
+  Iv = y0[3]
+  
+  t = 0
+  res = data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv)
+  
+  while (t < tmax) {
+    z = z_t(Z, t)
+    Nv = z * Nh
+    
+    # Taux d’événements par unité de temps
+    rate_infect_h = beta_h * z * Iv * (Nh - Ih - Rh) / Nh
+    rate_recover_h = gamma * Ih
+    rate_infect_v = beta_v * (Nv - Iv) * Ih / Nh
+    rate_die_v = mu_v * Iv
+    
+    # Tirages de Poisson pour chaque événement sur l’intervalle dt
+    n_infect_h = rpois(1, rate_infect_h * dt)
+    n_recover_h = rpois(1, rate_recover_h * dt)
+    n_infect_v = rpois(1, rate_infect_v * dt)
+    n_die_v = rpois(1, rate_die_v * dt)
+    
+    # Mise à jour des compartiments
+    Ih = Ih + n_infect_h - n_recover_h
+    Rh = Rh + n_recover_h
+    Iv = Iv + n_infect_v - n_die_v
+    
+    # Éviter les valeurs négatives
+    Ih = max(Ih, 0)
+    Rh = max(Rh, 0)
+    Iv = max(Iv, 0)
+    
+    t = t + dt
+    res = rbind(res, data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv))
+  }
+  return(res)
+}
+y0 = c(10000, 100000, 0)
+Z = runif(20,0.2,1.5)
+stoch = modele_dengue_tauleap(y0, param = Z, tmax = 156, dt = 1)
+plot(stoch$time, stoch$Ih, type='l')
 
 ########### Climate data per period ##### 
 colnames(weather)[1] = "dates" 
@@ -652,8 +710,7 @@ colnames(z_estim) = c("Mode","Year","Period")
 z_estim = z_estim %>%
   mutate(
     Month = (as.numeric(Period) - 1) * nb_month_in_period + ceiling(nb_month_in_period / 2),
-    Date = as.Date(paste(Year, Month, "1", sep = "-"))
-)
+    Date = as.Date(paste(Year, Month, "1", sep = "-")))
 
 par(mfrow=c(1,1))
 ggplot(data = z_estim, aes(x=Date,y=Mode))+
