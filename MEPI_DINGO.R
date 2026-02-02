@@ -240,7 +240,7 @@ solve_determistic = function(y, tmax, param, delta_t, plot = FALSE) {
   return(result)
 }
 
-Z = runif(20,0.2,1.5)
+Z = runif(20,0.1,1.5)
 test = solve_determistic(c(100, 100, 75), 156, Z, 1, plot = TRUE)
 
 ######################################################################
@@ -361,8 +361,9 @@ distance_determinist = function(x, ssobs) {
   infected_dyna = simu[, 2]
   recover_dyna = simu[, 3]
   # Création d'un résumé de nos statistiques simulées
+  freq_I_detected = 0.05
   all_mensual_case = summary_extract(infected_dyna, recover_dyna) # On récupère toutes les nouvelles infection de chaque mois
-  all_mensual_case_obs = rbinom(n = length(all_mensual_case),  size = pmax(0,round(all_mensual_case)),  prob = 0.05) # Modèle d'observation, hypothèse symptome
+  all_mensual_case_obs = freq_I_detected*all_mensual_case # Modèle d'observation, hypothèse symptome
   # Comparaison de nos statistiques résumées
   dist = sum((all_mensual_case_obs - ssobs) ** 2)
   return(c(dist))
@@ -601,64 +602,141 @@ ggplot(simulation_long, aes(x = time)) +
   coord_cartesian(ylim = c(0, 40000))+
   theme_minimal()
 
-######################################################################
-######################################################################
-###################### Model stochastique ############################
-######################################################################
-######################################################################
-modele_dengue_tauleap <- function(y0, param, tmax, dt = 1) {
-  # Paramètres fixes
-  Z = param
-  gamma = 1 / 2
-  beta_v = 0.375
-  mu_v = 1 / 6
-  mu_h = 0
-  beta_h = 0.75
-  Nh = 23300000  # Population SriLanka
-  
-  # Initialisation
-  Ih = y0[1]
-  Rh = y0[2]
-  Iv = y0[3]
-  
-  t = 0
-  res = data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv)
-  
-  while (t < tmax) {
-    z = z_t(Z, t)
-    Nv = z * Nh
-    
-    # Taux d’événements par unité de temps
-    rate_infect_h = beta_h * z * Iv * (Nh - Ih - Rh) / Nh
-    rate_recover_h = gamma * Ih
-    rate_infect_v = beta_v * (Nv - Iv) * Ih / Nh
-    rate_die_v = mu_v * Iv
-    
-    # Tirages de Poisson pour chaque événement sur l’intervalle dt
-    n_infect_h = rpois(1, rate_infect_h * dt)
-    n_recover_h = rpois(1, rate_recover_h * dt)
-    n_infect_v = rpois(1, rate_infect_v * dt)
-    n_die_v = rpois(1, rate_die_v * dt)
-    
-    # Mise à jour des compartiments
-    Ih = Ih + n_infect_h - n_recover_h
-    Rh = Rh + n_recover_h
-    Iv = Iv + n_infect_v - n_die_v
-    
-    # Éviter les valeurs négatives
-    Ih = max(Ih, 0)
-    Rh = max(Rh, 0)
-    Iv = max(Iv, 0)
-    
-    t = t + dt
-    res = rbind(res, data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv))
+# ================================================================
+# ===================== MODELE STOCHASTIQUE ======================
+# ===================== ABC-SMC (BRREWABC) =======================
+# ================================================================
+# Modele stochastique par Tau-Leaping
+distance_stochastic <- function(x, ssobs) {
+  z_t <- function(Z, t) {
+    period = seq(9, 162, 9)
+    for (j in 1:length(period)) {
+      if (t < period[j]) {
+        return(Z[j])
+      }
+    }
+    return(Z[length(Z)])
   }
-  return(res)
+  
+  modele_dengue_tauleap <- function(y0, Z, tmax, dt = 1) {
+    gamma = 1/2
+    beta_v = 0.375
+    mu_v = 1/6
+    mu_h = 0
+    beta_h = 0.75
+    Nh = 23300000
+    
+    Ih = y0[1]
+    Rh = y0[2]
+    Iv = y0[3]
+    
+    t = 0
+    res = data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv)
+    
+    while (t < tmax) {
+      z = z_t(Z, t)
+      Nv = z * Nh
+      
+      rate_inf_h = beta_h * z * Iv * (Nh - Ih - Rh) / Nh
+      rate_rec_h = gamma * Ih
+      rate_inf_v = beta_v * (Nv - Iv) * Ih / Nh
+      rate_die_v = mu_v * Iv
+      
+      n_inf_h = rpois(1, rate_inf_h * dt)
+      n_rec_h = rpois(1, rate_rec_h * dt)
+      n_inf_v = rpois(1, rate_inf_v * dt)
+      n_die_v = rpois(1, rate_die_v * dt)
+      
+      Ih = max(Ih + n_inf_h - n_rec_h, 0)
+      Rh = max(Rh + n_rec_h, 0)
+      Iv = max(Iv + n_inf_v - n_die_v, 0)
+      
+      t = t + dt
+      res = rbind(res, data.frame(time = t, Ih = Ih, Rh = Rh, Iv = Iv))
+    }
+    
+    return(res)
+  }
+  
+  # Simulation multiple (Monte Carlo interne)
+  simulate_stochastic <- function(y0, Z, tmax, dt, nrep) {
+    sims = vector("list", nrep)
+    for (k in 1:nrep) {
+      sims[[k]] = modele_dengue_tauleap(y0, Z, tmax, dt)
+    }
+    return(sims)
+  }
+  
+  # Extraction des cas mensuels
+  summary_extract <- function(vect_inf, vect_recov) {
+    monthly_new_case = c()
+    u = 1
+    for (i in seq(4, length(vect_inf), 4.6)) {
+      if (u == 1) {
+        monthly_new_case = c(monthly_new_case,
+                             sum(diff(c(0, vect_inf[u:i])) + diff(c(0, vect_recov[u:i]))))
+      } else {
+        monthly_new_case = c(monthly_new_case,
+                             sum(diff(vect_inf[(u-1):i]) + diff(vect_recov[(u-1):i])))
+      }
+      u = i + 1
+    }
+    return(monthly_new_case)
+  }
+  
+  y0 = c(10000, 100000, 0)
+  
+  Z = numeric(18)
+  for (i in 1:18) Z[i] = x[[paste0("z", i)]]
+  
+  sims = simulate_stochastic(y0 = y0, Z = Z, tmax = 156, dt = 1, nrep = 10)
+  
+  monthly_cases = matrix(NA, nrow = length(sims), ncol = length(ssobs))
+  
+  for (k in 1:length(sims)) {
+    Ih = sims[[k]]$Ih
+    Rh = sims[[k]]$Rh
+    monthly_cases[k, ] = summary_extract(Ih, Rh)
+  }
+  
+  mean_monthly_cases = colMeans(monthly_cases, na.rm = TRUE)
+  
+  obs_sim = rbinom(n = length(mean_monthly_cases),
+                   size = pmax(0, round(mean_monthly_cases)),
+                   prob = 0.05)
+  
+  dist = sum((obs_sim - ssobs)^2)
+  return(dist)
 }
-y0 = c(10000, 100000, 0)
-Z = runif(20,0.2,1.5)
-stoch = modele_dengue_tauleap(y0, param = Z, tmax = 156, dt = 1)
-plot(stoch$time, stoch$Ih, type='l')
+
+model_list_stoch = list("m1" = distance_stochastic)
+
+z_priors_stoch = list(
+  "m1" = lapply(1:18, function(i) c(paste0("z", i), "unif", 0, 3))
+)
+
+ss_obs = SriLankan_monthly$Cases
+
+# Lancement de l'inférence ABC-SMC
+res_stoch = abcsmc(
+  model_list = model_list_stoch,
+  prior_dist = z_priors_stoch,
+  ss_obs = ss_obs,
+  max_number_of_gen = 10,
+  nb_acc_prtcl_per_gen = 1500,
+  new_threshold_quantile = 0.8,
+  max_attempts = 300000,
+  experiment_folderpath = path,
+  max_concurrent_jobs = 6,
+  verbose = TRUE,
+  progressbar = TRUE,
+  acceptance_rate_min = 0.001
+)
+
+# 8) Extraction des résultats
+all_accepted_particles_stoch = res_stoch$particles
+all_thresholds_stoch = res_stoch$thresholds
+
 
 ########### Climate data per period ##### 
 colnames(weather)[1] = "dates" 
