@@ -8,10 +8,9 @@
 
 # Erwan 
 setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
-#path = "~/Documents/Master/M2/MEPI/projet/inference"
-
 # Leo
 #setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+
 path = "C:/Users/Nitro/Documents/Cours/Inf"
 
 # Import
