@@ -839,7 +839,7 @@ n_sims <- length(sims)
 tmax <- 157
 
 # Créer un data frame avec toutes les simulations
-df_all <- data.frame(time = 1:tmax)
+all_simulation <- data.frame(time = 1:tmax)
 
 for (k in 1:n_sims) {
   # Cas observés pour cette simulation
@@ -849,11 +849,11 @@ for (k in 1:n_sims) {
     prob = freq_I_detected
   )
   
-  df_all[[paste0("sim_", k)]] <- observed_cases
+  all_simulation[[paste0("sim_", k)]] <- observed_cases
 }
 
 # Transformer en format long pour ggplot
-df_long <- df_all %>%
+simulation_long <- all_simulation %>%
   pivot_longer(
     cols = starts_with("sim_"),
     names_to = "simulation",
@@ -861,7 +861,7 @@ df_long <- df_all %>%
   )
 
 # Plot avec toutes les trajectoires
-ggplot(df_long, aes(x = time, y = cases, group = simulation)) +
+ggplot(simulation_long, aes(x = time, y = cases, group = simulation)) +
   geom_line(alpha = 0.3, color = "steelblue") +
   labs(
     title = "Trajectoires stochastiques des cas de dengue",
@@ -870,8 +870,4 @@ ggplot(df_long, aes(x = time, y = cases, group = simulation)) +
     x = "Temps (jours)",
     y = "Cas observés"
   ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold", size = 14),
-    panel.grid.minor = element_blank()
-  )
+  theme_minimal()
