@@ -9,7 +9,7 @@
 # Erwan 
 setwd("~/Documents/Master/M2/MEPI/projet/MEPI_dengue/dataset_dengo")
 # Leo
-#setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
+setwd("C:/Users/Nitro/Documents/Cours/MEPI_dengue/dataset_dengo")
 
 path = "C:/Users/Nitro/Documents/Cours/Inf"
 
@@ -253,19 +253,21 @@ test = solve_determistic(c(100, 100, 75), 156, Z, 1, plot = TRUE)
 distance_determinist = function(x, ssobs) {
   ### Définition de toutes les fonctions pour ABC
   library(deSolve)
-  summary_extract <- function(vect_inf, vect_recov, n_month) {
-    
-    monthly_new_case <- numeric(n_month)
-    breaks <- round(seq(1, length(vect_inf), length.out = n_month + 1))
-    
-    for (m in seq_len(n_month)) {
-      i1 <- breaks[m]
-      i2 <- breaks[m + 1]
-      monthly_new_case[m] <-
-        sum(diff(c(0, vect_inf[i1:i2]))) +
-        sum(diff(c(0, vect_recov[i1:i2])))
+  summary_extract = function(vect_inf, vect_recov) {
+    monthly_new_case = c()
+    u = 1
+    for (i in seq(4, length(vect_inf), 4.6)) {
+      if (u == 1) {
+        monthly_new_case = c(monthly_new_case, sum(diff(c(0, vect_inf[u:i])) + diff(c(
+          0, vect_recov[u:i]
+        ))))
+      }
+      if (u != 1) {
+        monthly_new_case = c(monthly_new_case, sum(diff(vect_inf[(u - 1):i]) +
+                                                     diff(vect_recov[(u - 1):i])))
+      }
+      u = i + 1
     }
-    
     return(monthly_new_case)
   }
   simulation_determinist = function(y, tmax, param, delta_t) {
@@ -281,17 +283,6 @@ distance_determinist = function(x, ssobs) {
       method = "rk4"
     )
     
-    # Visualisation
-    par(mfrow = c(1, 2))
-    plot(
-      result[, 1],
-      result[, 3],
-      type = "l",
-      col = "blue",
-      ylim = c(0, 10000)
-    )
-    lines(result[, 1], result[, 2], type = "l", col = "red")
-    plot(result[, 1], result[, 4], type = "l")
     return(result)
   }
   
@@ -341,7 +332,7 @@ distance_determinist = function(x, ssobs) {
   
   ## Fonction de distance
   # Définition des conditions initiales
-  y0 = c(10000, 100000, 0)
+  y0 = c(10000, 100000, 100000)
   
   param=c()
   
@@ -360,8 +351,8 @@ distance_determinist = function(x, ssobs) {
   recover_dyna = simu[, 3]
   n_months = length(ssobs)
   # Création d'un résumé de nos statistiques simulées
-  freq_I_detected = 0.54
-  all_mensual_case = summary_extract(infected_dyna, recover_dyna, n_months) # On récupère toutes les nouvelles infection de chaque mois
+  freq_I_detected = 0.05
+  all_mensual_case = summary_extract(infected_dyna, recover_dyna) # On récupère toutes les nouvelles infection de chaque mois
   all_mensual_case_obs = freq_I_detected*all_mensual_case # Modèle d'observation, hypothèse symptome
   # Comparaison de nos statistiques résumées
   dist = sum((all_mensual_case_obs - ssobs) ** 2)
@@ -370,20 +361,19 @@ distance_determinist = function(x, ssobs) {
 ## Inférence des valeurs de z
 # Définition des priors
 z_priors = list("m1"=lapply(1:18, function(i) c(paste0("z", i), "unif", 0, 3)))
-
 # Définition du modèle
 model_list = list("m1" = distance_determinist)
 
 # Définition des statistiques observées
 ss_obs = SriLankan_monthly$Cases
-
+path2="C:/Users/Nitro/Documents/Cours/Inf3"
 # Réalisation de l'inférence, hyper-espace en dimension 18 donc on considère une taille de génération très grande (3000 particules/gen)
 res = abcsmc(model_list = model_list, prior_dist = z_priors,
              ss_obs = ss_obs, max_number_of_gen = 60, nb_acc_prtcl_per_gen = 3000,
-             new_threshold_quantile = 0.8, max_attempts = 200000, experiment_folderpath = path,
+             new_threshold_quantile = 0.8, max_attempts = 200000, experiment_folderpath = "C:/Users/Nitro/Documents/Cours/Inf3",
              max_concurrent_jobs = 7, verbose = TRUE,progressbar = TRUE,acceptance_rate_min = 0.001)
 
-## Exctraction des résultats
+  ## Exctraction des résultats
 all_accepted_particles = res$particles
 all_thresholds = res$thresholds
 
@@ -400,7 +390,8 @@ simulation_result_inf=matrix(nrow=length(part_to_simulate$z1),ncol=157)
 simulation_result_recov=matrix(nrow=length(part_to_simulate$z1),ncol=157)
 simulation_result_stik=matrix(nrow=length(part_to_simulate$z1),ncol=157)
 for (line in 1:length(part_to_simulate$z1)){
-  simulation=simulation_deter(y0, 156, part_to_simulate[line,], 1)
+  y0 = c(10000, 100000, 100000)
+  simulation=simulation_determinist(y0, 156, part_to_simulate[line,], 1)
   simulation_result_inf[line,]=simulation[,2]
   simulation_result_recov[line,]=simulation[,3]
   simulation_result_stik[line,]=simulation[,4]
@@ -426,6 +417,7 @@ simulation_long = simulation_long %>%
     low90  = quantile(value, 0.05, na.rm = TRUE),
     high90 = quantile(value, 0.95, na.rm = TRUE)
   )
+library(ggplot2)
 
 ### GGPLOT de la dynamique du modèle sans observation (100 % des cas du modèle)
 ggplot(simulation_long, aes(x = time)) +
