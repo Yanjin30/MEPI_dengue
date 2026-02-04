@@ -360,7 +360,7 @@ distance_determinist = function(x, ssobs) {
 }
 ## Inférence des valeurs de z
 # Définition des priors
-z_priors = list("m1"=lapply(1:18, function(i) c(paste0("z", i), "unif", 0, 3)))
+z_priors = list("m1"=lapply(1:18, function(i) c(paste0("z", i), "unif", 0, 1)))
 # Définition du modèle
 model_list = list("m1" = distance_determinist)
 
@@ -698,7 +698,7 @@ distance_stochastic <- function(x, ssobs) {
   
   n_month <- length(ssobs)
   monthly_cases <- matrix(NA, nrow = length(sims), ncol = n_month)
-  freq_I_detected <- 0.54
+  freq_I_detected <- 0.05
   for (k in seq_along(sims)) {
     Ih <- sims[[k]]$Ih
     Rh <- sims[[k]]$Rh
@@ -819,3 +819,59 @@ anova(model)
 
 model = lm(z_estim$Mode~weather_periodized$meanTemp)
 anova(model)
+
+## Simulation du modèle stochastique au mod de l'inférence des z.
+last_gen = all_accepted_particles %>%
+  filter(gen == max(gen))%>%
+  select(-c(gen,model,dist1,pWeight))
+last_gen_mode = apply(last_gen, 2, MAP)
+sims=simulate_stochastic(
+  y0 = y0,
+  Z = last_gen_mode,
+  tmax = 156,
+  dt = 1,
+  nrep = 10
+)
+
+# Paramètres
+freq_I_detected <- 0.05
+n_sims <- length(sims)
+tmax <- 157
+
+# Créer un data frame avec toutes les simulations
+df_all <- data.frame(time = 1:tmax)
+
+for (k in 1:n_sims) {
+  # Cas observés pour cette simulation
+  observed_cases <- rbinom(
+    n = length(sims[[k]]$Ih),
+    size = pmax(0, round(sims[[k]]$Ih)),
+    prob = freq_I_detected
+  )
+  
+  df_all[[paste0("sim_", k)]] <- observed_cases
+}
+
+# Transformer en format long pour ggplot
+df_long <- df_all %>%
+  pivot_longer(
+    cols = starts_with("sim_"),
+    names_to = "simulation",
+    values_to = "cases"
+  )
+
+# Plot avec toutes les trajectoires
+ggplot(df_long, aes(x = time, y = cases, group = simulation)) +
+  geom_line(alpha = 0.3, color = "steelblue") +
+  labs(
+    title = "Trajectoires stochastiques des cas de dengue",
+    subtitle = paste0(n_sims, " simulations avec taux de détection = ", 
+                      freq_I_detected * 100, "%"),
+    x = "Temps (jours)",
+    y = "Cas observés"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    panel.grid.minor = element_blank()
+  )
