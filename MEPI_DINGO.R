@@ -346,14 +346,15 @@ distance_determinist = function(x, ssobs) {
     tmax = 156,
     param = param,
     delta_t = 1
-  ) # On considère grossièrement que chaque mois -> 30 jours
+  ) 
+  # On considère grossièrement que chaque mois -> 30 jours
   infected_dyna = simu[, 2]
   recover_dyna = simu[, 3]
   n_months = length(ssobs)
   # Création d'un résumé de nos statistiques simulées
-  freq_I_detected = 0.05
+  freq_I_detected = 0.05 # hypothèse cas grave
   all_mensual_case = summary_extract(infected_dyna, recover_dyna) # On récupère toutes les nouvelles infection de chaque mois
-  all_mensual_case_obs = freq_I_detected*all_mensual_case # Modèle d'observation, hypothèse symptome
+  all_mensual_case_obs = freq_I_detected*all_mensual_case # Modèle d'observation, hypothèse cas grave
   # Comparaison de nos statistiques résumées
   dist = sum((all_mensual_case_obs - ssobs) ** 2)
   return(c(dist))
@@ -384,7 +385,6 @@ plot_ess(data = all_accepted_particles, colorpal = "YlOrBr", filename = file.pat
 plot_densityridges(data = all_accepted_particles, prior = z_priors, colorpal = "YlOrBr", filename = file.path(path, "densityridges.png"))
 
 #### Trajectoire avec les particules de la génération 60, calcule de la moyenne, medianne et intervalle de confiance à 95%
-y0 = c(10000, 100000, 0)
 part_to_simulate=all_accepted_particles[all_accepted_particles$gen==60,seq(3,20,1)]
 simulation_result_inf=matrix(nrow=length(part_to_simulate$z1),ncol=157)
 simulation_result_recov=matrix(nrow=length(part_to_simulate$z1),ncol=157)
@@ -417,7 +417,6 @@ simulation_long = simulation_long %>%
     low90  = quantile(value, 0.05, na.rm = TRUE),
     high90 = quantile(value, 0.95, na.rm = TRUE)
   )
-library(ggplot2)
 
 ### GGPLOT de la dynamique du modèle sans observation (100 % des cas du modèle)
 ggplot(simulation_long, aes(x = time)) +
@@ -540,7 +539,7 @@ simulation_long <- as.data.frame(weekly_simu) %>%
   ) %>%
   group_by(traj) %>%
   mutate(
-    time = row_number() - 1   # ou row_number() si 1..157
+    time = row_number() - 1   
   ) %>%
   ungroup()
 
@@ -572,7 +571,7 @@ ggplot(simulation_long, aes(x = time)) +
     linewidth = 0.8
   ) +
   geom_point(
-    data = SriLankan_monthly,  # votre tableau avec les points
+    data = SriLankan_monthly,  
     aes(x = time, y = Cases, color = "Données observées",linetype="Données observées"),
     size = 2
   ) +
@@ -852,7 +851,6 @@ for (k in 1:n_sims) {
   all_simulation[[paste0("sim_", k)]] <- observed_cases
 }
 
-# Transformer en format long pour ggplot
 simulation_long <- all_simulation %>%
   pivot_longer(
     cols = starts_with("sim_"),
