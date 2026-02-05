@@ -388,13 +388,13 @@ y0 = c(10000, 100000, 0)
 part_to_simulate=all_accepted_particles[all_accepted_particles$gen==60,seq(3,20,1)]
 simulation_result_inf=matrix(nrow=length(part_to_simulate$z1),ncol=157)
 simulation_result_recov=matrix(nrow=length(part_to_simulate$z1),ncol=157)
-simulation_result_stik=matrix(nrow=length(part_to_simulate$z1),ncol=157)
+simulation_result_moustique=matrix(nrow=length(part_to_simulate$z1),ncol=157)
 for (line in 1:length(part_to_simulate$z1)){
   y0 = c(10000, 100000, 100000)
   simulation=simulation_determinist(y0, 156, part_to_simulate[line,], 1)
   simulation_result_inf[line,]=simulation[,2]
   simulation_result_recov[line,]=simulation[,3]
-  simulation_result_stik[line,]=simulation[,4]
+  simulation_result_moustique[line,]=simulation[,4]
 }
 
 simulation_long <- as.data.frame(simulation_result_inf) %>%
